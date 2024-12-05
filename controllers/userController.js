@@ -47,7 +47,7 @@ export const register = async(req,res)=>{
       { user: createUser.id },
       
       process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1h" }
     );
   
     
@@ -64,7 +64,7 @@ export const register = async(req,res)=>{
       }
     });
     createUser.accessToken = accessToken
-    createUser.sessionId = userSession.id
+    // createUser.sessionId = userSession.id
     return res.status(200).json({createUser})
 }
 
@@ -79,19 +79,19 @@ export const login = async (req, res) => {
           include: { userSecret: true }
         });
   
-         console.log(matchedUser,"............");
+       
        
         if (!matchedUser) {
           return res.status(404).json({ error: "User doesn't exist" });
         }
-        const hashedPass =  bcrypt.compare(password, matchedUser.userSecret?.password);
+        const hashedPass =  await bcrypt.compare(password, matchedUser.userSecret?.password);
         if (!hashedPass) {
-          return res.sendStatus(401);
+          return res.status(400).json({msg:"Invalid password"});
         }
         const accessToken = jwt.sign(
           { user: matchedUser.id },
           process.env.ACCESS_TOKEN_SECRET,
-          { expiresIn: "1d" }
+          { expiresIn: "1h" }
         );
         console.log("matchedUser");
         
@@ -191,7 +191,8 @@ export const login = async (req, res) => {
       return res.status(200).json({ msg: "User is  resend otp" });
     }
 
-    // logout
+  
+   
 
     export const logOut = async (req, res) => {
       try {
@@ -218,13 +219,121 @@ export const login = async (req, res) => {
     export const refreshToken = async(req,res)=>{
       try{
         const {userId} = req;
-        session
+        if (!userId) {
+      return res.status(400).json({ msg: "User ID is missing " });
+    }
 
-        if(!refreshToken) return res.status(401).json({msg:"refreshToken is required"});
-
+    // console.log("Received userId:", userId);
        
+     const findUser = await prisma.user.findUnique({
+    where:{id:userId}
+     })
+    if(!findUser) return res.status(400).json({msg:"user is not find"})
+
+    const accessToken = jwt.sign(
+        { user: findUser.id},
+        
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "1h" }
+      );
+      return res.status(200).json({msg:"accessToken generate successfully",accessToken})
 
       }catch(error){
-        return res.status(500).json({ msg: "Internal server error" });
+        return res.status(500).json({ msg: "Server Error" ,Error:error.message});
       }
     }
+
+    
+   
+
+export const changePassword = async (req, res) => {
+  const { userId } = req;  // Assuming the userId is set by the JWT middleware
+  const { currentPassword, newPassword } = req.body;
+
+  // Check if both passwords are provided
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ msg: "All fields are required" });
+  }
+
+  console.log('Current Password:', currentPassword);
+  console.log('New Password:', newPassword);
+
+  try {
+    // Find the user
+    const checkUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { userSecret: true }
+    });
+
+    if (!checkUser) {
+      return res.status(400).json({ msg: "User not found" });
+    }
+
+    // Compare the current password
+    const checkPassword = await bcrypt.compare(currentPassword, checkUser.userSecret?.password);
+
+    if (!checkPassword) {
+      return res.status(400).json({ msg: "Current password is incorrect" });
+    }
+
+    // Hash the new password
+    if (!newPassword) {
+      return res.status(400).json({ msg: "New password is required" });
+    }
+
+    const hashNewPassword = await bcrypt.hash(newPassword, 10);  // Ensure `newPassword` is passed correctly
+
+    // Update the password
+    const updatedPassword = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        userSecret: {
+          update: {
+            password: hashNewPassword,
+          },
+        },
+      },
+    });
+
+    res.status(200).json({ msg: "Password updated successfully", updatedPassword });
+  } catch (error) {
+    console.log("Error changing password:", error);
+    res.status(500).json({ msg: "Internal server error", error: error.message });
+  }
+};
+
+export const forgetPassword = async (req,res)=>{
+   try {
+    const {email} = req.body;
+
+    if(!email) return res.status(400).json({msg:"Email is required"});
+
+    const findUser = await prisma.user.findUnique({
+      where:{email}
+    })
+
+    if(!findUser) return res.status(400).json({msg:"User is not exists"})
+
+      const resetToken = jwt.sign(
+        { user: findUser.id },
+        process.env.RESET_TOKEN_SECRET,
+        { expiresIn: "1h" }
+      );
+      // console.log(resetToken,"matchedUser");
+
+      const updatedPassword = await prisma.user.update({
+        where:{email},
+        data:{
+          resetToken,
+          resetTokenExpiry: new Date(Date.now() + 15 * 60 * 1000),
+        }
+      })
+      console.log(updatedPassword,"....")
+
+      return res.status(200).json({msg:"reset token sent successfully",updatedPassword})
+   } catch (error) {
+    res.status(500).json({ msg: "Internal server error", error: error.message });
+   }
+}
+
+    
