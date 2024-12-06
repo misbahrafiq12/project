@@ -68,8 +68,8 @@ export const register = async(req,res)=>{
     return res.status(200).json({createUser})
 }
 
-// login
 
+// login
 export const login = async (req, res) => {
       try {
         const { email, password } = req.body;
@@ -124,14 +124,14 @@ export const login = async (req, res) => {
       }
     };
 
-    //verify otp 
-
-    export const verifyOtp = async (req, res) => {
+   
+ //verify otp 
+export const verifyOtp = async (req, res) => {
       try {
         const {userId}= req
         const { otp } = req.body;
         const currentDate = new Date();
-    console.log(currentDate,"currentdate");
+        console.log(currentDate,"currentdate");
     
        
         const foundUser = await prisma.user.findUnique({
@@ -165,14 +165,13 @@ export const login = async (req, res) => {
     
             return res.status(200).json({ msg: "User is verified" });
           }
+          return res.status(400).json({ msg: "OTP is not correct" });
         }
-    
-      
         return res.status(400).json({ msg: "User is not verified" });
       } catch (error) {
         return res.status(500).json({ msg: "Server Error", Error: error.message });
       }
-    };
+   };
 
     // resendOTP
    export const resendOtp =async (req,res)=>{
@@ -191,10 +190,8 @@ export const login = async (req, res) => {
       return res.status(200).json({ msg: "User is  resend otp" });
     }
 
-  
-   
-
-    export const logOut = async (req, res) => {
+  // logout
+       export const logOut = async (req, res) => {
       try {
         const {sessionId}=req.params
         const { userId } = req;
@@ -215,8 +212,8 @@ export const login = async (req, res) => {
     };
     
    
-    // refreshToken
-    export const refreshToken = async(req,res)=>{
+  // refreshToken
+export const refreshToken = async(req,res)=>{
       try{
         const {userId} = req;
         if (!userId) {
@@ -244,8 +241,7 @@ export const login = async (req, res) => {
     }
 
     
-   
-
+// changePasword
 export const changePassword = async (req, res) => {
   const { userId } = req;  // Assuming the userId is set by the JWT middleware
   const { currentPassword, newPassword } = req.body;
@@ -302,38 +298,63 @@ export const changePassword = async (req, res) => {
   }
 };
 
+// forgetPassword
 export const forgetPassword = async (req,res)=>{
    try {
+    const otp = Math.floor(1000 + Math.random() * 9000)
+    console.log(otp);
     const {email} = req.body;
-
     if(!email) return res.status(400).json({msg:"Email is required"});
-
     const findUser = await prisma.user.findUnique({
       where:{email}
     })
 
-    if(!findUser) return res.status(400).json({msg:"User is not exists"})
+    if(!findUser) return res.status(400).json({msg:"User doesn't exist"})
 
-      const resetToken = jwt.sign(
-        { user: findUser.id },
-        process.env.RESET_TOKEN_SECRET,
-        { expiresIn: "1h" }
-      );
+      // const resetToken = jwt.sign(
+      //   { user: findUser.id },
+      //   process.env.RESET_TOKEN_SECRET,
+      //   { expiresIn: "1h" }
+      // );
       // console.log(resetToken,"matchedUser");
 
-      const updatedPassword = await prisma.user.update({
-        where:{email},
+      //nodemailer
+
+      const updatedUserSecret = await prisma.userSecret.update({
+        where:{userId:findUser.id},
         data:{
-          resetToken,
-          resetTokenExpiry: new Date(Date.now() + 15 * 60 * 1000),
+                otp:otp.toString(),
+                expiresAt: expiresAt.toISOString(),
+                used:false
+        
         }
       })
-      console.log(updatedPassword,"....")
+      console.log(updatedUserSecret,"....")
 
-      return res.status(200).json({msg:"reset token sent successfully",updatedPassword})
+      return res.status(200).json({msg:updatedUserSecret})
    } catch (error) {
     res.status(500).json({ msg: "Internal server error", error: error.message });
    }
 }
 
-    
+// resetPassword
+export const resetPassword =async(req,res)=>{
+ const {userId}= req
+ try {
+ const  {password}=req.body
+ const hashedPassword = await bcrypt.hash(password,10)
+
+  const updatedPassword = await prisma.userSecret.update({
+      where:{
+        userId
+      },
+      data:{
+        password:hashedPassword,
+      }
+  })
+  return res.status(200).json({msg: updatedPassword})
+ } 
+  catch (error) {
+    res.status(500).json({ msg: "Internal server error", error: error.message });
+ } 
+}
