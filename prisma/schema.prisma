@@ -33,9 +33,8 @@ model User {
   Job               Job[]
   InvitedUser       InvitedUser[]
   createdAt         DateTime            @default(now())
-  updatedAt DateTime @updatedAt
-
-} 
+  updatedAt         DateTime            @updatedAt
+}
 
 model Profile {
   id           String        @id @default(uuid())
@@ -53,7 +52,7 @@ model Profile {
   userType     userType
   services     userServices?
   createdAt    DateTime      @default(now())
-updatedAt DateTime @updatedAt
+  updatedAt    DateTime      @updatedAt
 }
 
 model UserSecret {
@@ -65,7 +64,6 @@ model UserSecret {
   secret    User     @relation(fields: [userId], references: [id])
   userId    String   @unique
   updatedAt DateTime @updatedAt
-  
 }
 
 model Session {
@@ -74,7 +72,7 @@ model Session {
   userSession  User     @relation(fields: [userId], references: [id])
   userId       String
   createdAt    DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt    DateTime @updatedAt
 }
 
 model Referral {
@@ -102,8 +100,16 @@ model userServices {
   BookMarkJob       BookMarkJob[]
   bookMarkEmployees bookMarkEmployees[]
   Documents         Documents[]
+  ServiceCategory ServiceCategory[]
   createdAt         DateTime            @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt         DateTime            @updatedAt
+}
+
+model ServiceCategory {
+  id             String @id @default(uuid())
+  category String
+   userServices    userServices  @relation(fields: [userServicesId], references: [id])
+  userServicesId String
 }
 
 model BookMarkJob {
@@ -131,7 +137,7 @@ model Documents {
   service   userServices @relation(fields: [serviceId], references: [id])
   serviceId String
   createdAt DateTime
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime     @updatedAt
 }
 
 model Chat {
@@ -154,7 +160,7 @@ model Message {
   senderId  String
   readAt    DateTime?
   createdAt DateTime  @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime  @updatedAt
 }
 
 model RatingAndReview {
